@@ -4,9 +4,11 @@ namespace Service.Model
     {
         public string Text { get; }
 
-        public Response(string text)
+        private Response(string text)
         {
             Text = text;
         }
+
+        public static Response Message(string message) => new Response(message);
     }
 }
