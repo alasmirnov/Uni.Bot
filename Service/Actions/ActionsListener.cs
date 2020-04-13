@@ -52,7 +52,7 @@ namespace Service.Actions
 
                 foreach (ActionCommand command in commands)
                 {
-                    if (command.Username.EqualsNoCase(_allowedUserName) && command.UserId == _allowedId)
+                    if (AuthorizeUser(command.User))
                     {
                         string result = await ProcessAsync(command);
                         await _bot.SendAsync(Response.Message(result), command.ChatId, _token);
@@ -75,6 +75,11 @@ namespace Service.Actions
             }
         }
 
+        private bool AuthorizeUser(User user)
+        {
+            return user.Id == _allowedId && user.Name.EqualsNoCase(_allowedUserName);
+        }
+
         private async Task<string> ProcessAsync(ActionCommand command)
         {
             string[] parts = command.Command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -84,7 +89,7 @@ namespace Service.Actions
 
             return parts[0] switch
             {
-                "/start" => $"Hello, {command.Username}",
+                "/start" => $"Hello, {command.User.Name}",
                 _ => $"Unexpected command '{parts[0]}'"
             };
         }
