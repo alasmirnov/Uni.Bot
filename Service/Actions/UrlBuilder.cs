@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Encodings.Web;
 using Service.Model;
@@ -19,13 +20,11 @@ namespace Service.Actions
             if (parameters.IsNotEmpty())
             {
                 builder.Append('?');
-                
-                foreach (var parameter in parameters)
-                {
-                    builder.Append($"{parameter.Key}={UrlEncoder.Default.Encode(parameter.Value)}");
-                }
 
-                builder.Remove(builder.Length - 1, 1);
+                string parString = parameters.Select(x => $"{x.Key}={UrlEncoder.Default.Encode(x.Value)}")
+                    .Aggregate((all, x) => $"{all}&{x}");
+
+                builder.Append(parString);
             }
 
             return builder.ToString();
