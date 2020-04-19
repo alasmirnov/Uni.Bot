@@ -84,18 +84,9 @@ namespace Service.Actions
 
                 foreach (ActionCommand command in commands)
                 {
-                    if (AuthorizeUser(command.User))
-                    {
-                        string result = await ProcessAsync(command);
-                        await _bot.SendAsync(Response.Message(result), command.ChatId, token);
-                    }
-                    else
-                    {
-                        await _bot.SendAsync(NotAuthorizedResponse, command.ChatId, token);
-                    }
+                    token.ThrowIfCancellationRequested();
+                    await ProcessCommand(command, token);
                 }
-
-                token.ThrowIfCancellationRequested();
             }
             catch (OperationCanceledException)
             {
@@ -104,6 +95,26 @@ namespace Service.Actions
             catch (Exception e)
             {
                 _logger.LogError(e, "Failed to process actions");
+            }
+        }
+
+        private async Task ProcessCommand(ActionCommand command, CancellationToken token)
+        {
+            try
+            {
+                if (AuthorizeUser(command.User))
+                {
+                    string result = await ProcessAsync(command);
+                    await _bot.SendAsync(Response.Message(result), command.ChatId, token);
+                }
+                else
+                {
+                    await _bot.SendAsync(NotAuthorizedResponse, command.ChatId, token);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Failed to process command {command.Command}");
             }
         }
 
