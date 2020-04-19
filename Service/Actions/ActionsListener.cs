@@ -70,31 +70,38 @@ namespace Service.Actions
             while (true)
             {
                 await SafeProcessAsync(token);
-                
+
                 if (token.IsCancellationRequested)
+                {
+                    _logger.LogDebug("Listener has been stopped");
                     break;
+                }
             }
         }
 
         private async Task SafeProcessAsync(CancellationToken token)
         {
+            IReadOnlyList<ActionCommand> commands = await GetCommandsAsync(token);
+
+            foreach (ActionCommand command in commands)
+            {
+                if (token.IsCancellationRequested)
+                    return;
+                
+                await ProcessCommand(command, token);
+            }
+        }
+
+        private async Task<IReadOnlyList<ActionCommand>> GetCommandsAsync(CancellationToken token)
+        {
             try
             {
-                IReadOnlyList<ActionCommand> commands = await _bot.GetNewCommandsAsync(token);
-
-                foreach (ActionCommand command in commands)
-                {
-                    token.ThrowIfCancellationRequested();
-                    await ProcessCommand(command, token);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogDebug("Listener has been stopped");
+                return await _bot.GetNewCommandsAsync(token);
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to process actions");
+                _logger.LogError(e, "Failed to get new commands");
+                return new ActionCommand[0];
             }
         }
 
@@ -104,7 +111,7 @@ namespace Service.Actions
             {
                 if (AuthorizeUser(command.User))
                 {
-                    string result = await ProcessAsync(command);
+                    string result = await InternalProcessAsync(command);
                     await _bot.SendAsync(Response.Message(result), command.ChatId, token);
                 }
                 else
@@ -123,7 +130,7 @@ namespace Service.Actions
             return user.Id == _allowedId && user.Name.EqualsNoCase(_allowedUserName);
         }
 
-        private static async Task<string> ProcessAsync(ActionCommand command)
+        private static async Task<string> InternalProcessAsync(ActionCommand command)
         {
             string[] parts = command.Command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
