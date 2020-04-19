@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Service.Configuration;
 using Service.Model;
 
@@ -18,6 +19,7 @@ namespace Service.Actions
         private readonly int _allowedId;
         private readonly string _allowedUserName;
         private readonly CancellationTokenSource _cts;
+        private readonly ILogger<ActionsListener> _logger;
 
         private Task _loopTask;
 
@@ -43,6 +45,8 @@ namespace Service.Actions
             _bot = new ActionsBot(telegramConfig.Token);
             _allowedId = telegramConfig.UserId;
             _allowedUserName = telegramConfig.Username;
+
+            _logger = serviceProvider.GetService<ILogger<ActionsListener>>();
             
             _cts = new CancellationTokenSource();
         }
@@ -91,11 +95,11 @@ namespace Service.Actions
             }
             catch (OperationCanceledException)
             {
-                // suppressed
+                _logger.LogDebug("Listener has been stopped");
             }
-            catch
+            catch (Exception e)
             {
-                // TODO: log it
+                _logger.LogError(e, "Failed to process actions");
             }
         }
 
