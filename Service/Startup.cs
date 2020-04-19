@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Service.Configuration;
 
 namespace Service
 {
@@ -26,6 +27,8 @@ namespace Service
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddOptions();
+            services.Configure<TelegramConfig>(Configuration.GetSection(nameof(TelegramConfig)));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

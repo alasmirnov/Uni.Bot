@@ -2,68 +2,92 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Service.Configuration;
 using Service.Model;
 
 namespace Service.Actions
 {
-    public class ActionsListener
+    public class ActionsListener : IHostedService
     {
         private static readonly Response NotAuthorizedResponse = Response.Message("You are not authorized");
         
         private readonly ActionsBot _bot;
         private readonly int _allowedId;
         private readonly string _allowedUserName;
+        private readonly CancellationTokenSource _cts;
 
         private Task _loopTask;
-        private CancellationToken _token;
 
-        public ActionsListener(ActionsBot bot, int allowedId, string allowedUserName)
+        public Task StartAsync(CancellationToken cancellationToken)
         {
-            _bot = bot;
-            _allowedId = allowedId;
-            _allowedUserName = allowedUserName;
+            Listen();
+            return Task.CompletedTask;
         }
 
-        public void Listen(CancellationToken cancellationToken)
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            _cts.Cancel();
+            _cts.Dispose();
+
+            _loopTask.Wait(cancellationToken);
+            return Task.CompletedTask;
+        }
+
+        public ActionsListener(IServiceProvider serviceProvider)
+        {
+            TelegramConfig telegramConfig = serviceProvider.GetService<IOptions<TelegramConfig>>().Value;
+
+            _bot = new ActionsBot(telegramConfig.Token);
+            _allowedId = telegramConfig.UserId;
+            _allowedUserName = telegramConfig.Username;
+            
+            _cts = new CancellationTokenSource();
+        }
+
+        private void Listen()
         {
             if (_loopTask != null)
                 throw new Exception("Listener has already been started");
             
-            _loopTask = Task.Run(Loop, cancellationToken);
-            _token = cancellationToken;
+            _loopTask = Task.Run(Loop, _cts.Token);
         }
 
         private async Task Loop()
         {
+            CancellationToken token = _cts.Token;
+
             while (true)
             {
-                await SafeProcessAsync();
+                await SafeProcessAsync(token);
                 
-                if (_token.IsCancellationRequested)
+                if (token.IsCancellationRequested)
                     break;
             }
         }
 
-        private async Task SafeProcessAsync()
+        private async Task SafeProcessAsync(CancellationToken token)
         {
             try
             {
-                IReadOnlyList<ActionCommand> commands = await _bot.GetNewCommandsAsync(_token);
+                IReadOnlyList<ActionCommand> commands = await _bot.GetNewCommandsAsync(token);
 
                 foreach (ActionCommand command in commands)
                 {
                     if (AuthorizeUser(command.User))
                     {
                         string result = await ProcessAsync(command);
-                        await _bot.SendAsync(Response.Message(result), command.ChatId, _token);
+                        await _bot.SendAsync(Response.Message(result), command.ChatId, token);
                     }
                     else
                     {
-                        await _bot.SendAsync(NotAuthorizedResponse, command.ChatId, _token);
+                        await _bot.SendAsync(NotAuthorizedResponse, command.ChatId, token);
                     }
                 }
 
-                _token.ThrowIfCancellationRequested();
+                token.ThrowIfCancellationRequested();
             }
             catch (OperationCanceledException)
             {
@@ -80,7 +104,7 @@ namespace Service.Actions
             return user.Id == _allowedId && user.Name.EqualsNoCase(_allowedUserName);
         }
 
-        private async Task<string> ProcessAsync(ActionCommand command)
+        private static async Task<string> ProcessAsync(ActionCommand command)
         {
             string[] parts = command.Command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
