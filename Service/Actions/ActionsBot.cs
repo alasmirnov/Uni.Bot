@@ -43,8 +43,8 @@ namespace Service.Actions
                     
                 result.Add(new ActionCommand(update.Message.Text, user, user.Id));
 
-                if (update.Id > _offset)
-                    _offset = update.Id;
+                if (update.Id >= _offset)
+                    _offset = update.Id + 1;
             }
 
             return result;
