@@ -55,13 +55,17 @@ namespace Service.Actions
         {
             if (_loopTask != null)
                 throw new Exception("Listener has already been started");
-            
+
             _loopTask = Task.Run(Loop, _cts.Token);
         }
 
         private async Task Loop()
         {
             CancellationToken token = _cts.Token;
+
+            User me = await _bot.GetBotInfoAsync(token);
+
+            _logger.LogInformation($"Actions listener has been started for bot {me}");
 
             while (true)
             {

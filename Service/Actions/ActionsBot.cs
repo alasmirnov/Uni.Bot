@@ -14,6 +14,15 @@ namespace Service.Actions
 
         private int _offset;
 
+        public async Task<User> GetBotInfoAsync(CancellationToken cancellationToken)
+        {
+            string url = UrlBuilder.BuildUrl("getMe", _token);
+
+            var getMeResponse = await InternalGetAsync<GetMeResponse>(url, cancellationToken);
+
+            return new User(getMeResponse.Me.Id, getMeResponse.Me.Name);
+        }
+
         public async Task<IReadOnlyList<ActionCommand>> GetNewCommandsAsync(CancellationToken cancellationToken)
         {
             var parameters = new Dictionary<string, string>

@@ -10,5 +10,7 @@ namespace Service.Model
             Id = id;
             Name = name;
         }
+
+        public override string ToString() => $"{Name} ({Id})";
     }
 }
